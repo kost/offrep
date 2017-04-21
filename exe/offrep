@@ -1,3 +1,159 @@
 #!/usr/bin/env ruby
 
+require "bundler/setup"
 require "offrep"
+
+require 'optparse'
+require 'logger'
+
+
+$PRGNAME="offrep"
+$options = {}
+$options['loglevel'] = 'WARN'
+$options['logname'] = nil
+
+# helpful class for logger
+class MultiDelegator
+  def initialize(*targets)
+    @targets = targets
+  end
+
+  def self.delegate(*methods)
+    methods.each do |m|
+      define_method(m) do |*args|
+	@targets.map { |t| t.send(m, *args) }
+      end
+    end
+    self
+  end
+
+  class <<self
+    alias to new
+  end
+end
+
+
+begin
+	optyaml = YAML::load_file(ENV['HOME']+'/.offrep')
+rescue # Errno::ENOENT
+end
+
+if optyaml != nil then
+	$options.merge!(optyaml)
+end
+
+# initialize logger
+if $options['logname'] != nil then
+	log_file = File.open($options['logname'], 'a')
+	@log = Logger.new MultiDelegator.delegate(:write, :close).to(STDERR, log_file)
+else
+	@log = Logger.new MultiDelegator.delegate(:write, :close).to(STDERR)
+end
+loglevel =  Logger.const_get $options['loglevel'] # Logger::INFO # default is ::WARN
+@log.level = loglevel
+
+
+OptionParser.new do |opts|
+	opts.banner = "Usage: #{$PRGNAME} [options]"
+
+	opts.on("-h", "--help", "Prints this help") do
+		puts opts
+		exit
+	end
+
+	opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
+		$options['verbose'] = v
+		@log.level = Logger::INFO
+	end
+
+	opts.on("-d", "--[no-]debug", "Run in debug mode") do |v|
+		$options['debug'] = v
+		@log.level = Logger::DEBUG
+	end
+
+	opts.on("-r", "--read NAME", "use NAME as list of files") do |optarg|
+		$options['read'] = optarg
+	end
+
+	opts.on("-c", "--convert NAME", "use NAME to convert text (translation file)") do |optarg|
+		$options['convert'] = optarg
+	end
+
+	opts.on("-t", "--type NAME", "use NAME as type of output") do |optarg|
+		$options['type'] = optarg
+	end
+
+	opts.on("-o", "--output NAME", "use NAME as output xml file") do |optarg|
+		$options['output'] = optarg
+	end
+
+	opts.on("-m", "--missing NAME", "use NAME as missing xml file for translations") do |optarg|
+		$options['missing'] = optarg
+	end
+
+	opts.on("-l", "--log FILE", "log to FILE") do |optarg|
+		$options['logname'] = optarg
+	end
+
+	opts.separator ""
+	opts.separator "Example #1: #{$PRGNAME} -o out.commonxml *.nessus"
+	opts.separator "Example #2: #{$PRGNAME} -c file-hr.xml -m missing.xml all.commonxml"
+end.parse!
+
+# start
+if ARGV.empty? then
+	@log.error("Provide at least one file to process as argument")
+end
+
+total_oc=Offrep::CommonXML.new
+total_on=Offrep::NessusXML.new
+nessuscount=0
+allcount=0
+ARGV.each do |arg|
+	extension = File.extname arg
+	@log.info("processing #{allcount}: #{arg}...with extension #{extension}")
+	if extension == ".nessus" then
+		@log.debug("processing nessus #{arg} with extension #{extension}")
+		if nessuscount==0 then
+			total_on.readxml(File.open(arg))
+		else
+			total_on.mergexml(arg)
+		end
+		nessuscount=nessuscount+1
+	end
+
+	if extension == ".commonxml" then
+		@log.debug("processing commonxml #{arg} with extension #{extension}")
+		total_oc.readxml(File.open(arg)) # TODO: mergexml
+	end
+
+	# on.xmldoc.to_s
+	# on.to_common
+	allcount=allcount+1
+end
+@log.info("Processed #{allcount} items.")
+
+if nessuscount>0 then 
+	@log.debug("Converting all nessus to common XML format")
+	total_oc.readxml(on.to_common.to_s)
+end
+
+if $options['convert'] then
+	@log.debug("Converting all with translations #{$options['convert']}")
+	ot=Offrep::Translation.new
+	ot.readxml(File.open($options['convert']))
+	missingxml=total_oc.translate(ot.xml)
+	if $options['missing'] then
+		@log.debug("Writting all missing to #{$options['missing']}")
+		anonmisxml=oc.anonymize(missingxml)
+		File.write($options['missing'],anonmisxml.to_s)
+	end
+end
+
+if $options['output'] then
+	@log.debug("Outputing to #{$options['output']}")
+	File.write(ARGV[0],total_oc.xmldoc.to_s)
+else
+	puts total_oc.xmldoc.to_s
+end
+
