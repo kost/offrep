@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# require "bundler/setup"
+require "bundler/setup"
 require "offrep"
 
 require 'optparse'
@@ -145,7 +145,7 @@ if $options['convert'] then
 	missingxml=total_oc.translate(ot.xml)
 	if $options['missing'] then
 		@log.debug("Writting all missing to #{$options['missing']}")
-		anonmisxml=oc.anonymize(missingxml)
+		anonmisxml=total_oc.anonymize(missingxml)
 		File.write($options['missing'],anonmisxml.to_s)
 	end
 end
