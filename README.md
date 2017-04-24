@@ -33,7 +33,6 @@ require "offrep"
 
 ot=Offrep::Translation.new
 oc=Offrep::CommonXML.new
-on=Offrep::NessusXML.new
 oc.readxml(File.open('bla.commonxml'))
 ot.readxml(File.open('nessus-translations-language.xml'))
 mis=oc.translate(ot.xml)
