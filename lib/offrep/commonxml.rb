@@ -79,14 +79,14 @@ module Offrep
       @xmldoc
     end
 
-    def anonymize(xmln) 
+    def anonymize(xmln)
       xmln.xpath('/vulnerabilities/vulnerability/target').each do |target|
         target.remove
       end
       xmln.xpath('/vulnerabilities/vulnerability/data/common/output').each do |output|
         output.remove
-      end 
-      return xmln   
+      end
+      return xmln
     end
 
     def emptyxml
@@ -206,19 +206,19 @@ module Offrep
 
     def translate(trxml)
       misxml = emptyxml()
-      @xmldoc.xpath('/vulnerabilities/vulnerability').each do |vuln| 
+      @xmldoc.xpath('/vulnerabilities/vulnerability').each do |vuln|
         foundit=false
         # binding.pry
         vuln.at_xpath('./id').element_children.each do |ids|
           if ids.name=='cve' then
-            next 
+            next
           end
 	  # binding.pry
 	  trid=trxml.at_xpath("/vulnerabilities/vulnerability[./id/#{ids.name}='#{ids.content}']")
           if not trid.nil? then
             foundit=true
             # replace all XML elements inside /data/common to translated ones
-            trid.at_xpath('./data/common').element_children.each do |ele| 
+            trid.at_xpath('./data/common').element_children.each do |ele|
               # puts ele.name
               foundele=vuln.at_xpath("./data/common/#{ele.name}")
               # if element not found, add as a child in common
