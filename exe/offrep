@@ -61,6 +61,11 @@ OptionParser.new do |opts|
 		exit
 	end
 
+	opts.on("-V", "--version", "Prints the version") do
+		puts "#{$PRGNAME} #{Offrep::VERSION}"
+		exit
+	end
+
 	opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
 		$options['verbose'] = v
 		@log.level = Logger::INFO
